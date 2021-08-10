@@ -1,3 +1,16 @@
+// https://medium.com/authpack/easy-google-auth-with-node-js-99ac40b97f4c
+// https://athiththan11.medium.com/google-drive-image-upload-with-oauth-2-0-ab0d3b4a75bc
+// https://github.com/athiththan11/G-Drive-OAuth-Image-Upload/blob/3ed9ae6f1e144cdc3824fe37af5b43ba4691dc61/api/drive.api.js#L131
+// https://console.cloud.google.com/apis/credentials
+// https://developers.google.com/identity/protocols/oauth2/openid-connect#scope-param
+// https://developers.google.com/identity/protocols/oauth2/web-server
+// https://developers.google.com/identity/protocols/oauth2/scopes
+// https://developers.google.com/oauthplayground/ : All available google apis and required scope for using the api we will get here
+
+// We do not need to add scopes to our client application in the console.cloud.google.com oauth consent screen, we can directly use these scopes while calling the
+// /authorize endpoint , but it is a good practice to add these scopes in the console.cloud.google.com oauth consent screen
+// openid profile email are required scopes for Openid Connect
+
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
 
@@ -53,11 +66,30 @@ class Google {
      console.log("UserInfo Data");
      console.log(userinfoData.data);
 
-     const userinfoData2 = await axios.get(
-      `https://www.googleapis.com/plus/v1/people/me?key=AIzaSyAegqpixMnLb_cVWbsLVq_eqg6XEzqkY_c&personFields=names,emailAddresses`
+     //  https://developers.google.com/identity/protocols/oauth2/web-server#callinganapi : The scope for calling this api is given at the top of the page of this url
+     const googleDriveAllFiles = await axios.get(`https://www.googleapis.com/drive/v2/files`, {
+      headers: { Authorization: `Bearer ${token.access_token}` },
+     });
+     const driveFiles = googleDriveAllFiles.data.items.map((file) => file.title);
+     console.log("All files from Google Drive");
+     console.log(driveFiles);
+     //  https://developers.google.com/identity/protocols/oauth2/scopes : Search People API scopes from here
+     //  https://developers.google.com/people/api/rest/v1/people/get : personFields use
+     const peopleAPIData = await axios.get(
+      `https://people.googleapis.com/v1/people/me?personFields=ageRanges,birthdays,organizations,phoneNumbers,genders`,
+      {
+       headers: { Authorization: `Bearer ${token.access_token}` },
+      }
      );
-     console.log("UserInfo Data");
-     console.log(userinfoData2);
+     console.log("People API Data");
+     console.log("gender");
+     console.log(peopleAPIData.data.genders);
+     console.log("birthday");
+     console.log(peopleAPIData.data.birthdays);
+     console.log("phoneNumbers");
+     console.log(peopleAPIData.data.phoneNumbers);
+     console.log("ageRanges");
+     console.log(peopleAPIData.data.ageRanges);
      process.exit(0);
     }
    }

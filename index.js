@@ -74,8 +74,12 @@ function runServer() {
    }
    if (state[1] == "STATE") {
     res.end("Your Sign-in is successful...............Please return to the App");
-    const tokenResponse = await provider.getToken(code[1]);
-    await provider.validateToken(tokenResponse.data);
+    try {
+     const tokenResponse = await provider.getToken(code[1]);
+     await provider.validateToken(tokenResponse.data);
+    } catch (error) {
+     console.log(error.message);
+    }
    }
   }
  });
