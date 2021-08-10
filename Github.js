@@ -6,10 +6,13 @@
 const axios = require("axios");
 
 class Github {
+ constructor(provider) {
+  this.provider = provider;
+ }
  async getToken(code) {
   //if we provide no scope then it Grants read-only access to public information (including user profile info, repository info, and gists)
   const tokenResponse = await axios.post(
-   `https://github.com/login/oauth/access_token?client_id=2a2041735c6b19d94dac&client_secret=8833dcab2d236f58f1f729cb138c40e3f7160501&code=${code}&redirect_uri=http://localhost:8000/callback`,
+   `https://github.com/login/oauth/access_token?client_id=${this.provider.client_id}&client_secret=${this.provider.client_secret}&code=${code}&redirect_uri=http://localhost:8000/callback`,
    { headers: { Accept: "application/json" } }
   );
   return tokenResponse;
@@ -26,6 +29,7 @@ class Github {
   });
   console.log("Profile Data");
   console.log(tokenResponse.data);
+  process.exit(0);
  }
 }
 

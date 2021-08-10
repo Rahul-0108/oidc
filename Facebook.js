@@ -10,10 +10,12 @@
 const axios = require("axios");
 
 class Facebook {
+ constructor(provider) {
+  this.provider = provider;
+ }
  async getToken(code) {
-  //if we provide no scope then it Grants read-only access to public information (including user profile info, repository info, and gists)
   const tokenResponse = await axios.post(
-   `https://graph.facebook.com/v11.0/oauth/access_token?client_id=265101321715922&redirect_uri=http://localhost:8000/callback&client_secret=3e512e2cdef8123efd07e7862228da7d&code=${code}`,
+   `https://graph.facebook.com/v11.0/oauth/access_token?client_id=${this.provider.client_id}&redirect_uri=http://localhost:8000/callback&client_secret=${this.provider.client_secret}&code=${code}`,
    { headers: { Accept: "application/json" } }
   );
   return tokenResponse;
@@ -24,7 +26,7 @@ class Facebook {
   console.log(token);
   // get app AccessToken using client Credentials flow to validate the access token received
   const appAccessToken = await axios.get(
-   `https://graph.facebook.com/oauth/access_token?client_id=265101321715922&client_secret=3e512e2cdef8123efd07e7862228da7d&grant_type=client_credentials`,
+   `https://graph.facebook.com/oauth/access_token?client_id=${this.provider.client_id}&client_secret=${this.provider.client_secret}&grant_type=client_credentials`,
    { headers: { Accept: "application/json" } }
   );
   console.log("App access Token from Client Credentials flow");
@@ -61,6 +63,7 @@ class Facebook {
   );
   console.log("removed all scopes granted to the app by the user");
   console.log(logout.data);
+  process.exit(0);
  }
 }
 

@@ -6,10 +6,15 @@
 const axios = require("axios");
 
 class Linkedin {
+ constructor(provider) {
+  this.provider = provider;
+ }
  async getToken(code) {
   const tokenResponse = await axios.post(
-   `https://www.linkedin.com/oauth/v2/accessToken?grant_type=authorization_code&code=${code}&redirect_uri=http://localhost:8000/callback&client_id=78h70r4utzrm3i&client_secret=mwyxoAgBld5cnLJ5`,
-   { headers: { "content-type": "application/x-www-form-urlencoded" } }
+   `https://www.linkedin.com/oauth/v2/accessToken?grant_type=authorization_code&code=${code}&redirect_uri=http://localhost:8000/callback&client_id=${this.provider.client_id}&client_secret=${this.provider.client_secret}`,
+   {
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+   }
   );
   return tokenResponse;
  }
@@ -38,6 +43,7 @@ class Linkedin {
   );
   console.log("Profile Picture url");
   console.log(JSON.stringify(tokenResponse.data));
+  process.exit(0);
  }
 }
 
