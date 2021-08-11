@@ -40,7 +40,6 @@ class Autho {
      headers: { Authorization: `Bearer ${token.access_token}` },
     });
     console.log(userInfoData.data);
-    process.exit(0);
    }
   });
  }
