@@ -5,11 +5,15 @@ class Bentley {
  constructor(provider) {
   this.provider = provider;
  }
- async getToken(code) {
+ async getTokenPKCEFlow(code, code_verifier) {
   try {
    const tokenResponse = await axios.post(
-    `https://qa-imsoidc.bentley.com/connect/token?grant_type=authorization_code&client_id=${this.provider.client_id}&code=${code}&redirect_uri=http://localhost:8000/callback&client_secret=${this.provider.client_secret}`,
-    { headers: { "content-type": "application/x-www-form-urlencoded" } }
+    `https://qa-imsoidc.bentley.com/connect/token?grant_type=authorization_code&redirect_uri=http://localhost:8000/callback&code=${code}&code_verifier=${code_verifier}`,
+    {
+     client_id: this.provider.client_id,
+     client_secret: this.provider.client_secret,
+    },
+    { headers: { "content-type": "application/json" } }
    );
    return tokenResponse;
   } catch (error) {

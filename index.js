@@ -9,6 +9,7 @@ const Facebook = require("./Facebook");
 const Google = require("./Google");
 const Bentley = require("./Bentley");
 const providers = require("./Providers");
+const Helper = require("./Helper");
 let provider;
 let authorizeEndpoint;
 
@@ -16,13 +17,18 @@ async function main() {
  const response = await prompt({
   type: "input",
   name: "social",
-  message: "Choose Login Provider(Autho,Linkedin,Github,Facebook,Google,Bentley)",
+  message: "Choose Login Provider(Autho,Autho.PKCE,Linkedin,Github,Facebook,Google,Google.PKCE,Bentley)",
  });
 
  switch (response.social.toLowerCase()) {
   case "autho":
    provider = new Autho(providers.Auth0);
    authorizeEndpoint = providers.Auth0.authorizeEndpoint;
+   break;
+
+  case "autho.pkce":
+   provider = new Autho(providers.Auth0);
+   authorizeEndpoint = providers.Auth0.authorizeEndpointPKCE;
    break;
 
   case "linkedin":
@@ -46,9 +52,14 @@ async function main() {
    authorizeEndpoint = providers.Google.authorizeEndpoint;
    break;
 
+  case "google.pkce":
+   provider = new Google(providers.Google);
+   authorizeEndpoint = providers.Google.authorizeEndpointPKCE;
+   break;
+
   case "bentley":
    provider = new Bentley(providers.Bentley);
-   authorizeEndpoint = providers.Bentley.authorizeEndpoint;
+   authorizeEndpoint = providers.Bentley.authorizeEndpointPKCE;
    break;
   default:
    console.log("Please type a valid provider name");
@@ -76,7 +87,13 @@ function runServer() {
    }
    if (state[1] == "STATE") {
     try {
-     const tokenResponse = await provider.getToken(code[1]);
+     let tokenResponse;
+     if (authorizeEndpoint.includes("code_challenge_method")) {
+      // for PKCE flow
+      tokenResponse = await provider.getTokenPKCEFlow(code[1], providers.codeChallenge.verifier);
+     } else {
+      tokenResponse = await provider.getToken(code[1]);
+     }
      await provider.validateToken(tokenResponse.data);
      let loginData = "<h4>Your Sign-in is successful...............Please return to the App</h4>";
      if (authorizeEndpoint.includes("autho")) {

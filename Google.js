@@ -26,6 +26,14 @@ class Google {
   return tokenResponse;
  }
 
+ async getTokenPKCEFlow(code, code_verifier) {
+  const tokenResponse = await axios.post(
+   `https://oauth2.googleapis.com/token?code=${code}&client_id=${this.provider.client_id}&code_verifier=${code_verifier}&client_secret=${this.provider.client_secret}&redirect_uri=http://localhost:8000/callback&grant_type=authorization_code`,
+   { headers: { Accept: "application/json" } }
+  );
+  return tokenResponse;
+ }
+
  async validateToken(token) {
   console.log("Token response from /token  Endpoint");
   console.log(token);

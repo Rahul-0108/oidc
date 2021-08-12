@@ -59,6 +59,22 @@ class Autho {
   return tokenResponse;
  }
 
+ async getTokenPKCEFlow(code, code_verifier) {
+  const tokenResponse = await axios.post(
+   this.provider.token_Endpoint,
+   {
+    grant_type: "authorization_code",
+    client_id: this.provider.client_id,
+    code_verifier,
+    client_secret: this.provider.client_secret,
+    code: code,
+    redirect_uri: "http://localhost:8000/callback",
+   },
+   { headers: { "content-type": "application/json" } }
+  );
+  return tokenResponse;
+ }
+
  certToPEM(cert) {
   let pem = cert.match(/.{1,64}/g).join("\n");
   pem = `-----BEGIN CERTIFICATE-----\n${cert}\n-----END CERTIFICATE-----\n`;
