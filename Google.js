@@ -11,8 +11,10 @@
 // /authorize endpoint , but it is a good practice to add these scopes in the console.cloud.google.com oauth consent screen
 // openid profile email are required scopes for Openid Connect
 
+const { prompt } = require("enquirer");
 const axios = require("axios");
 const jwt = require("jsonwebtoken");
+const Helper = require("./Helper");
 
 class Google {
  constructor(provider) {
@@ -60,8 +62,8 @@ class Google {
    {
     algorithms: ["RS256"],
     issuer: "https://accounts.google.com",
-    nonce: "MyPROFILE",
-    audience: this.provider.client_id,
+    // nonce: "MyPROFILE", // will not validate nonce and clientId since there is no nonce and different ClientId in Device Code Flow
+    // audience: this.provider.client_id,
    },
    async (err, decoded) => {
     if (err) {
@@ -75,33 +77,106 @@ class Google {
      console.log(userinfoData.data);
 
      //  https://developers.google.com/identity/protocols/oauth2/web-server#callinganapi : The scope for calling this api is given at the top of the page of this url
-     const googleDriveAllFiles = await axios.get(`https://www.googleapis.com/drive/v2/files`, {
-      headers: { Authorization: `Bearer ${token.access_token}` },
-     });
-     const driveFiles = googleDriveAllFiles.data.items.map((file) => file.title);
-     console.log("All files from Google Drive");
-     console.log(driveFiles);
+     try {
+      const googleDriveAllFiles = await axios.get(`https://www.googleapis.com/drive/v2/files`, {
+       headers: { Authorization: `Bearer ${token.access_token}` },
+      });
+      const driveFiles = googleDriveAllFiles.data.items.map((file) => file.title);
+      console.log("All files from Google Drive");
+      console.log(driveFiles);
+     } catch (error) {
+      console.log("Google Drive API call fail as required scopes are not granted");
+     }
      //  https://developers.google.com/identity/protocols/oauth2/scopes : Search People API scopes from here
      //  https://developers.google.com/people/api/rest/v1/people/get : personFields use
-     const peopleAPIData = await axios.get(
-      `https://people.googleapis.com/v1/people/me?personFields=ageRanges,birthdays,organizations,phoneNumbers,genders`,
-      {
-       headers: { Authorization: `Bearer ${token.access_token}` },
-      }
-     );
-     console.log("People API Data");
-     console.log("gender");
-     console.log(peopleAPIData.data.genders);
-     console.log("birthday");
-     console.log(peopleAPIData.data.birthdays);
-     console.log("phoneNumbers");
-     console.log(peopleAPIData.data.phoneNumbers);
-     console.log("ageRanges");
-     console.log(peopleAPIData.data.ageRanges);
+     try {
+      const peopleAPIData = await axios.get(
+       `https://people.googleapis.com/v1/people/me?personFields=ageRanges,birthdays,organizations,phoneNumbers,genders`,
+       {
+        headers: { Authorization: `Bearer ${token.access_token}` },
+       }
+      );
+      console.log("People API Data");
+      console.log("gender");
+      console.log(peopleAPIData.data.genders);
+      console.log("birthday");
+      console.log(peopleAPIData.data.birthdays);
+      console.log("phoneNumbers");
+      console.log(peopleAPIData.data.phoneNumbers);
+      console.log("ageRanges");
+      console.log(peopleAPIData.data.ageRanges);
+     } catch (error) {
+      console.log("People API call fail as required scopes are not granted");
+     }
      process.exit(0);
     }
    }
   );
+ }
+ async executeDeviceCodeFlow() {
+  // https://developers.google.com/identity/protocols/oauth2/limited-input-device#creatingcred
+  // Create a new Project from Dashboard .Only 1 App we can register in one Project.
+  console.log("Welcome to OIDC Social Providers CMD APP");
+  try {
+   const response = await prompt({
+    type: "input",
+    name: "login",
+    message: "Please type y to login in our App",
+   });
+   if (response.login.toLowerCase() == "y") {
+    let options = {
+     method: "POST",
+     url: "https://oauth2.googleapis.com/device/code",
+     headers: { "content-type": "application/json" },
+     data: {
+      client_id: this.provider.deviceCodeApplicationClientID,
+      scope: "openid profile email https://www.googleapis.com/auth/drive.file", //https://www.googleapis.com/auth/drive.appdata scope not supported
+     },
+    };
+    const deviceResponse = await axios.request(options);
+    const data = deviceResponse.data;
+    console.log("/device/code Data");
+    console.log(data);
+    console.log(
+     "Please go to the following url: " + data.verification_url + " and type the following user Code : " + data.user_code
+    );
+
+    options = {
+     method: "POST",
+     url: "https://oauth2.googleapis.com/token",
+     headers: { "content-type": "application/json" },
+     data: {
+      grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+      device_code: data.device_code,
+      client_id: this.provider.deviceCodeApplicationClientID,
+      client_secret: "nWj4TEzDZibEmj5jURnlTPpW",
+     },
+    };
+    // Start polling for Tokens at interval value of data.interval(=5 seconds)
+    while (1) {
+     try {
+      const tokenResponse = await axios.request(options);
+      console.log(tokenResponse.data);
+      await this.validateToken(tokenResponse.data);
+      console.log("You are successfully logged-in in our  App");
+      break;
+     } catch (error) {
+      console.log(error.response.data.error + ": " + error.response.data.error_description);
+      if (error.response.data.error == "expired_token") {
+       console.log("you did not authorize the App on time. Please retry to login");
+       break;
+      }
+      if (error.response.data.error == "access_denied") {
+       console.log("you did not authorize the App. Please retry to login");
+       break;
+      }
+     }
+     await Helper.sleep(data.interval);
+    }
+   }
+  } catch (error) {
+   console.log(error);
+  }
  }
 }
 

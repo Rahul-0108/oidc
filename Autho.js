@@ -1,5 +1,8 @@
-const axios = require("axios");
+const axios = require("axios").default;
+const { prompt } = require("enquirer");
+const open = require("open");
 const jwt = require("jsonwebtoken");
+const Helper = require("./Helper");
 
 class Autho {
  constructor(provider) {
@@ -73,6 +76,67 @@ class Autho {
    { headers: { "content-type": "application/json" } }
   );
   return tokenResponse;
+ }
+
+ async executeDeviceCodeFlow() {
+  // https://auth0.github.io/device-flow-playground/
+  // https://auth0.com/docs/flows/device-authorization-flow
+  // https://auth0.com/docs/flows/call-your-api-using-the-device-authorization-flow#request-device-code
+  console.log("Welcome to OIDC Social Providers CMD APP");
+  const response = await prompt({
+   type: "input",
+   name: "login",
+   message: "Please type y to login in our App",
+  });
+  if (response.login.toLowerCase() == "y") {
+   let options = {
+    method: "POST",
+    url: this.provider.deviceCodeDomain + "device/code",
+    headers: { "content-type": "application/json" },
+    data: { client_id: this.provider.deviceCodeApplicationClientID, scope: "openid profile email offline_access" },
+   };
+   const deviceResponse = await axios.request(options);
+   const data = deviceResponse.data;
+   console.log("/device/code Data");
+   console.log(data);
+   console.log(
+    "Please go to the following url: " + data.verification_uri + " and type the following user Code : " + data.user_code
+   );
+   console.log("or Please authorize the App in the opened browser tab");
+   await open(data.verification_uri_complete);
+
+   options = {
+    method: "POST",
+    url: this.provider.deviceCodeDomain + "token",
+    headers: { "content-type": "application/json" },
+    data: {
+     grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+     device_code: data.device_code,
+     client_id: this.provider.deviceCodeApplicationClientID,
+    },
+   };
+   // Start polling for Tokens at interval value of data.interval(=5 seconds)
+   while (1) {
+    try {
+     const tokenResponse = await axios.request(options);
+     console.log(tokenResponse.data);
+     await this.validateToken(tokenResponse.data);
+     console.log("You are successfully logged-in in our  App");
+     break;
+    } catch (error) {
+     console.log(error.response.data.error + ": " + error.response.data.error_description);
+     if (error.response.data.error == "expired_token") {
+      console.log("you did not authorize the App on time. Please retry to login");
+      break;
+     }
+     if (error.response.data.error == "access_denied") {
+      console.log("you did not authorize the App. Please retry to login");
+      break;
+     }
+    }
+    await Helper.sleep(data.interval);
+   }
+  }
  }
 
  certToPEM(cert) {

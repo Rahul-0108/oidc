@@ -1,0 +1,226 @@
+<!-- https://developer.okta.com/blog/2019/05/01/is-the-oauth-implicit-flow-dead -->
+<!-- https://developers.google.com/identity/protocols/oauth2/javascript-implicit-flow#oauth-2.0-endpoints -->
+<html>
+ <head> </head>
+ <body>
+  <h2 style="text-align: center">This App demonstrates PKCE and Implicit flow for SPA for Google OIDC</h2>
+  <a id="link" href="">Click here to login to the App</a>
+  <h4 id="loggedin" style="display: none">You are successfully logged-in in our App</h4>
+  <script>
+   //////////////////////////////////////////////////////////////////////
+   // GENERAL HELPER FUNCTIONS
+
+   function generateRandomString() {
+    var array = new Uint32Array(28);
+    window.crypto.getRandomValues(array);
+    return Array.from(array, (dec) => ("0" + dec.toString(16)).substr(-2)).join("");
+   }
+   function sha256(plain) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(plain);
+    return window.crypto.subtle.digest("SHA-256", data);
+   }
+   function base64urlencode(str) {
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(str)))
+     .replace(/\+/g, "-")
+     .replace(/\//g, "_")
+     .replace(/=+$/, "");
+   }
+   async function pkceChallengeFromVerifier(v) {
+    hashed = await sha256(v);
+    return base64urlencode(hashed);
+   }
+
+   // Parse a query string into an object
+   function parseQueryString(string) {
+    if (string == "") {
+     return {};
+    }
+    var segments = string.split("&").map((s) => s.split("="));
+    var queryString = {};
+    segments.forEach((s) => (queryString[s[0]] = s[1]));
+    return queryString;
+   }
+
+   // Make a POST request and parse the response as JSON
+   function sendPostRequest(url, params, success, error) {
+    var request = new XMLHttpRequest();
+    request.open("POST", url, true);
+    request.setRequestHeader("Accept", "application/json");
+    request.onload = function () {
+     var body = {};
+     try {
+      body = JSON.parse(request.response);
+     } catch (e) {}
+
+     if (request.status == 200) {
+      success(request, body);
+     } else {
+      error(request, body);
+     }
+    };
+    request.onerror = function () {
+     error(request, {});
+    };
+    request.send(params ? JSON.stringify(params) : params);
+   }
+
+   //////////////////////////////////////////////////////////////////////
+   // OAUTH REQUEST
+
+   // Initiate the PKCE Auth Code flow when the link is clicked
+   document.getElementById("link").addEventListener("click", async function (e) {
+    e.preventDefault();
+    let oidcConfig = parseQueryString(window.location.search.substr(25));
+    console.log(oidcConfig);
+    // Create and store a random "state" value
+    var state = generateRandomString();
+    localStorage.setItem("pkce_state", state);
+
+    if (window.location.search.includes("PKCE")) {
+     localStorage.setItem("client_id", oidcConfig.client_id);
+     localStorage.setItem("token_endpoint", oidcConfig.token_endpoint);
+     localStorage.setItem("client_secret", oidcConfig.client_secret);
+
+     // Create and store a random "state" value
+     var state = generateRandomString();
+     localStorage.setItem("pkce_state", state);
+
+     // Create and store a new PKCE code_verifier (the plaintext random secret)
+     var code_verifier = generateRandomString();
+     localStorage.setItem("pkce_code_verifier", code_verifier);
+     // Hash and base64-urlencode the secret to use as the challenge
+     var code_challenge = await pkceChallengeFromVerifier(code_verifier);
+
+     // Build the authorization URL
+     var urlPKCE =
+      oidcConfig.authorization_endpoint +
+      "?response_type=code" +
+      "&client_id=" +
+      encodeURIComponent(oidcConfig.client_id) +
+      "&state=" +
+      encodeURIComponent(state) +
+      "&scope=" +
+      oidcConfig.scope +
+      "&redirect_uri=" +
+      encodeURIComponent("http://localhost:8000/callback.html") +
+      "&code_challenge=" +
+      encodeURIComponent(code_challenge) +
+      "&code_challenge_method=S256" +
+      "&nonce=MyPROFILE" +
+      "&include_granted_scopes=true&prompt=consent&access_type=offline";
+     // Redirect to the authorization server.
+
+     window.location = urlPKCE;
+    } else {
+     console.log(oidcConfig);
+     let urlImplicit =
+      oidcConfig.authorization_endpoint +
+      "?response_type=id_token token" +
+      "&client_id=" +
+      encodeURIComponent(oidcConfig.client_id) +
+      "&state=" +
+      encodeURIComponent(state) +
+      "&scope=" +
+      oidcConfig.scope +
+      "&redirect_uri=" +
+      encodeURIComponent("http://localhost:8000/callback.html") +
+      "&nonce=MyPROFILE" +
+      "&include_granted_scopes=true&prompt=consent";
+
+     window.location = urlImplicit;
+    }
+   });
+
+   //////////////////////////////////////////////////////////////////////
+   // OAUTH REDIRECT HANDLING
+
+   // Handle the redirect back from the authorization server and
+   // get an id_token and access token from the token endpoint
+   if (window.location.hash) {
+    let q = parseQueryString(window.location.hash.substr(1));
+    console.log(q);
+    if (localStorage.getItem("pkce_state") != q.state) {
+     alert("Invalid state");
+    } else {
+     window.history.replaceState({}, null, "/callback");
+     sendPostRequest(
+      "/validateToken",
+      { access_token: q.access_token, id_token: q.id_token, scope: q.scope, expires_in: q.expires_in },
+      function (request, body) {
+       console.log("is user valid");
+       console.log(body);
+       if (body.isValid) {
+        document.getElementById("loggedin").style.display = "block";
+        document.getElementById("link").style.display = "none";
+        localStorage.removeItem("pkce_state");
+       }
+      },
+      function (request, error) {}
+     );
+    }
+   } else {
+    var q = parseQueryString(window.location.search.substring(1));
+
+    // Check if the server returned an error string
+    if (q.error) {
+     alert("Error returned from authorization server: " + q.error);
+    }
+
+    // If the server returned an authorization code, attempt to exchange it for an access token
+    if (q.code) {
+     // Verify state matches what we set at the beginning
+     if (localStorage.getItem("pkce_state") != q.state) {
+      alert("Invalid state");
+     } else {
+      let client_id = localStorage.getItem("client_id");
+      let token_endpoint = localStorage.getItem("token_endpoint");
+
+      // Exchange the authorization code for an access token
+      sendPostRequest(
+       token_endpoint +
+        `?grant_type=authorization_code&code=${
+         q.code
+        }&client_id=${client_id}&redirect_uri=http://localhost:8000/callback.html&code_verifier=${localStorage.getItem(
+         "pkce_code_verifier"
+        )}&client_secret=${localStorage.getItem("client_secret")}`,
+       undefined,
+       function (request, body) {
+        console.log("Tokens from the /token endpoint");
+        console.log(body);
+        // Initialize your application now that you have an access token.
+        // Replace the history entry to remove the auth code from the browser address bar
+        window.history.replaceState({}, null, "/callback");
+        //TODO :how to store the tokens and check if the user is logged-in is still an issue .
+        sendPostRequest(
+         "/validateToken",
+         body,
+         function (request, body) {
+          console.log("is user valid");
+          console.log(body);
+          if (body.isValid) {
+           document.getElementById("loggedin").style.display = "block";
+           document.getElementById("link").style.display = "none";
+          }
+         },
+         function (request, error) {}
+        );
+       },
+       function (request, error) {
+        // This could be an error response from the OAuth server, or an error because the
+        // request failed such as if the OAuth server doesn't allow CORS requests
+       }
+      );
+     }
+
+     // Clean these up since we don't need them anymore
+     localStorage.removeItem("pkce_state");
+     localStorage.removeItem("client_id");
+     localStorage.removeItem("token_endpoint");
+     localStorage.removeItem("pkce_code_verifier");
+     localStorage.removeItem("client_secret");
+    }
+   }
+  </script>
+ </body>
+</html>

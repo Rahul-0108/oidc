@@ -14,6 +14,9 @@ class Helper {
  static sha256(buffer) {
   return crypto.createHash("sha256").update(buffer).digest();
  }
+ static sleep(seconds) {
+  return new Promise((resolve) => setTimeout(resolve, seconds * 1000));
+ }
 }
 
 module.exports = Helper;

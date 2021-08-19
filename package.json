@@ -10,8 +10,10 @@
  "license": "ISC",
  "dependencies": {
   "axios": "^0.21.1",
+  "browserify": "^17.0.0",
   "crypto": "^1.0.1",
   "enquirer": "^2.3.6",
+  "express": "^4.17.1",
   "jsonwebtoken": "^8.5.1",
   "open": "^8.2.1"
  }
