@@ -15,15 +15,16 @@ let provider;
 let authorizeEndpoint;
 let isImplicitFlow = false;
 let isImplicitFlowFormPost = false;
+let isHybridFlow = false;
 let isPkceFlow = false;
 let pkceImplicitConfig;
 
 async function main() {
  console.log(
-  "Choose Login Provider(Autho,Autho.PKCE,Autho.Implicit,Autho.Device,Linkedin,Github,Facebook,Google,Google.PKCE,Google.Implicit,Google.Device,Bentley)"
+  "Choose Login Provider(Autho,Autho.PKCE,Autho.Implicit,Autho.Hybrid,Autho.Device,Linkedin,Github,Facebook,Google,Google.PKCE,Google.Implicit,Google.Device,Bentley)"
  );
  console.log(
-  "1.Autho\n2.Autho.PKCE\n3.Autho.Implicit\n4.Autho.Device\n5.Linkedin\n6.Github\n7.Facebook\n8.Google\n9.Google.PKCE\n10.Google.Implicit\n11.Google.Device\n12.Bentley"
+  "1.Autho\n2.Autho.PKCE\n3.Autho.Implicit\n4.Autho.Device\n5.Linkedin\n6.Github\n7.Facebook\n8.Google\n9.Google.PKCE\n10.Google.Implicit\n11.Google.Device\n12.Bentley\n13.Autho.Hybrid"
  );
  const response = await prompt({
   type: "input",
@@ -95,6 +96,12 @@ async function main() {
    provider = new Bentley(providers.Bentley);
    authorizeEndpoint = providers.Bentley.authorizeEndpointPKCE;
    break;
+
+  case "13":
+   provider = new Autho(providers.Auth0);
+   authorizeEndpoint = providers.Auth0.authorizeEndpointHybrid;
+   isHybridFlow = true;
+   break;
   default:
    console.log("Please type a valid provider name");
  }
@@ -103,7 +110,7 @@ async function main() {
   // only for Google PKCE and Implicit Flow
   if (isImplicitFlow || isPkceFlow) {
    await open(`http://localhost:8000/callback.html?flow=${isPkceFlow ? "PKCE" : "Impl"}&clientSideUrl=${pkceImplicitConfig}`);
-  } else if (isImplicitFlowFormPost) {
+  } else if (isImplicitFlowFormPost || isHybridFlow) {
    await open(`http://localhost:8000/autho.implicit.formpost.callback.html`);
   } else {
    await open(authorizeEndpoint);
@@ -173,17 +180,35 @@ function runServer() {
   });
   req.on("end", async function () {
    data = body.split("&");
-   for (let i = 0; i <= 5; i++) {
+   for (let i = 0; i <= data.length - 1; i++) {
     let splitValue = data[i].split("=");
     token[splitValue[0]] = splitValue[1];
    }
-
    if (token.state == "STATE") {
-    //now validate the id_token and extract all user information from it and make the user logged in your app if the token is valid
-    await provider.validateToken(token);
-    //TODO:We should encrypt the id_token value before storing in cookie and make the cookie secure from any attack
-    res.cookie("token", token.id_token, { httpOnly: true }); // using httpOnly,clientside Javascript code cannot read the cookie value, so protected from cross-scripting attack
-    res.redirect("http://localhost:8000/autho.implicit.formpost.callback.html");
+    if (isImplicitFlowFormPost) {
+     //now validate the id_token and extract all user information from it and make the user logged in your app if the token is valid
+     await provider.validateToken(token);
+     //TODO:We should encrypt the id_token value before storing in cookie and make the cookie secure from any attack
+     res.cookie("token", token.id_token, { httpOnly: true }); // using httpOnly,clientside Javascript code cannot read the cookie value, so protected from cross-scripting attack
+     res.redirect("http://localhost:8000/autho.implicit.formpost.callback.html");
+    } else if (isHybridFlow) {
+     //now validate the id_token and extract all user information from it and make the user logged in your app if the token is valid
+     //here we will assume the id_token is valid
+     // When you decode and parse your ID token, you will notice an additional claim, c_hash, which contains a hash of the code. This claim is mandatory when an ID token is issued at the same time as a code, and you should validate it:
+
+     // 1.Using the hash algorithm specified in the alg claim in the ID Token header, hash the octets of the ASCII representation of the code.
+
+     // 2.Base64url-encode the left-most half of the hash.
+
+     //3.Check that the result matches the c_hash value.
+
+     //TODO:We should encrypt the id_token value before storing in cookie and make the cookie secure from any attack
+     res.cookie("token", token.id_token, { httpOnly: true }); // using httpOnly,clientside Javascript code cannot read the cookie value, so protected from cross-scripting attack
+     res.redirect("http://localhost:8000/autho.implicit.formpost.callback.html");
+     // We are securely going to retrive the Access Token and Refresh token from the backend channel when we need them, not rquired immediately as id_token is already got for login
+     const tokenResponse = await provider.getToken(token.code, true);
+     await provider.validateToken(tokenResponse.data);
+    }
    }
   });
  });

@@ -47,7 +47,7 @@ class Autho {
   });
  }
 
- async getToken(code) {
+ async getToken(code, isHybridFlow) {
   const tokenResponse = await axios.post(
    this.provider.token_Endpoint,
    {
@@ -55,7 +55,9 @@ class Autho {
     client_id: this.provider.client_id,
     client_secret: this.provider.client_secret,
     code: code,
-    redirect_uri: "http://localhost:8000/callback",
+    redirect_uri: !isHybridFlow
+     ? "http://localhost:8000/callback"
+     : "http://localhost:8000/autho.implicit.formpost.callback.html",
    },
    { headers: { "content-type": "application/json" } }
   );
