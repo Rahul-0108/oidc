@@ -149,7 +149,7 @@ class Google {
       grant_type: "urn:ietf:params:oauth:grant-type:device_code",
       device_code: data.device_code,
       client_id: this.provider.deviceCodeApplicationClientID,
-      client_secret: "nWj4TEzDZibEmj5jURnlTPpW",
+      client_secret: this.provider.deviceCodeApplicationClientSecret,
      },
     };
     // Start polling for Tokens at interval value of data.interval(=5 seconds)

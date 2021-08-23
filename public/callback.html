@@ -135,8 +135,9 @@
    //////////////////////////////////////////////////////////////////////
    // OAUTH REDIRECT HANDLING
 
-   // Handle the redirect back from the authorization server and
-   // get an id_token and access token from the token endpoint
+   // Handle the redirect back from the authorization server
+   // in implicit flow hash is used instead of query parameters
+   // for Implicit flow
    if (window.location.hash) {
     let q = parseQueryString(window.location.hash.substr(1));
     console.log(q);
@@ -160,6 +161,8 @@
      );
     }
    } else {
+    // get an id_token and access token from the token endpoint
+    // for PKCE flow
     var q = parseQueryString(window.location.search.substring(1));
 
     // Check if the server returned an error string

@@ -1,0 +1,67 @@
+<!-- https://auth0.com/docs/sessions/cookies/spa-authenticate-with-cookies -->
+<!-- https://auth0.com/docs/flows/implicit-flow-with-form-post -->
+<!-- https://auth0.com/docs/flows/add-login-auth-code-flow -->
+
+<!DOCTYPE html>
+<html>
+ <head>
+  <title></title>
+ </head>
+ <body>
+  <h2 style="text-align: center">This App demonstrates Implicit flow with Form Post for SPA for Autho OIDC</h2>
+  <a id="link" href="">Click here to login to the App</a>
+  <h4 id="loggedin" style="display: none">You are successfully logged-in in our App</h4>
+  <a id="logoutLink" href="" style="display: none">Click here to logout from the App</a>
+  <script>
+   // Make a GET request and parse the response as JSON
+   function sendGetRequest(url, success, error) {
+    var request = new XMLHttpRequest();
+    request.open("GET", url, true);
+    request.setRequestHeader("Accept", "application/json");
+    request.onload = function () {
+     var body = {};
+     try {
+      body = JSON.parse(request.response);
+     } catch (e) {}
+
+     if (request.status == 200) {
+      success(request, body);
+     } else {
+      error(request, body);
+     }
+    };
+    request.onerror = function () {
+     error(request, {});
+    };
+    request.send();
+   }
+
+   sendGetRequest(
+    "/validateToken",
+    function (request, body) {
+     if (body.isAuthenticated) {
+      document.getElementById("link").style.display = "none";
+      document.getElementById("loggedin").style.display = "block";
+      document.getElementById("logoutLink").style.display = "block";
+     } else {
+      document.getElementById("link").style.display = "block";
+      document.getElementById("loggedin").style.display = "none";
+      document.getElementById("logoutLink").style.display = "none";
+     }
+    },
+    function (request, body) {}
+   );
+
+   // Initiate the Implicit Auth Code flow when the link is clicked
+   document.getElementById("link").addEventListener("click", async function (e) {
+    e.preventDefault();
+    window.location = "/login";
+   });
+
+   document.getElementById("logoutLink").addEventListener("click", async function (e) {
+    e.preventDefault();
+    window.location = "/implicitFormPostLogout";
+   });
+  </script>
+ </body>
+</html>

@@ -2,6 +2,7 @@ const { prompt } = require("enquirer");
 const http = require("http");
 var express = require("express");
 var app = express();
+const cookieParser = require("cookie-parser");
 const open = require("open");
 const Autho = require("./Autho");
 const Linkedin = require("./Linkedin");
@@ -13,6 +14,7 @@ const providers = require("./Providers");
 let provider;
 let authorizeEndpoint;
 let isImplicitFlow = false;
+let isImplicitFlowFormPost = false;
 let isPkceFlow = false;
 let pkceImplicitConfig;
 
@@ -43,7 +45,7 @@ async function main() {
   case "3":
    provider = new Autho(providers.Auth0);
    authorizeEndpoint = providers.Auth0.authorizeEndpointImplicit;
-   isImplicitFlow = true;
+   isImplicitFlowFormPost = true;
    break;
 
   case "4":
@@ -101,6 +103,8 @@ async function main() {
   // only for Google PKCE and Implicit Flow
   if (isImplicitFlow || isPkceFlow) {
    await open(`http://localhost:8000/callback.html?flow=${isPkceFlow ? "PKCE" : "Impl"}&clientSideUrl=${pkceImplicitConfig}`);
+  } else if (isImplicitFlowFormPost) {
+   await open(`http://localhost:8000/autho.implicit.formpost.callback.html`);
   } else {
    await open(authorizeEndpoint);
   }
@@ -109,6 +113,7 @@ async function main() {
 
 function runServer() {
  app.use(express.static("public"));
+ app.use(cookieParser());
 
  app.get("/callback", async function (req, res) {
   res.header("Content-Type", "text/html");
@@ -140,7 +145,7 @@ function runServer() {
      // you achieve this by storing information inside a cookie. Log users out of your applications by clearing their sessions.
      // before loggingout user from application , clear cookie which stores user has logged in or not
      // while logout , we will logout user from Autho also . The Auth0 Logout endpoint clears the Single Sign-on (SSO) cookie in Auth0.
-     loginData += `<a href=${providers.Auth0.logoutUrl}>Click here to logout</a>`;
+     loginData += `<a href=${providers.Auth0.logoutUrl}http://localhost:8000/logout>Click here to logout</a>`;
     }
     res.send(loginData);
    } catch (error) {
@@ -156,37 +161,57 @@ function runServer() {
   process.exit(0);
  });
 
+ /////////////////////////////////////////////////////////////////////////////////////////////////
  // Implicit Flow with Form POST
  app.post("/callback", async function (req, res) {
-  res.header("Content-Type", "text/html");
   console.log(req.url);
   let body = "";
   let data;
-  let idToken;
-  let state;
+  let token = {};
   req.on("data", function (chunk) {
    body += chunk;
   });
-  req.on("end", function () {
+  req.on("end", async function () {
    data = body.split("&");
-   idToken = data[0].split("=");
-   state = data[1].split("=");
-   if (state[1] == "STATE") {
-    const id_token = idToken[1];
+   for (let i = 0; i <= 5; i++) {
+    let splitValue = data[i].split("=");
+    token[splitValue[0]] = splitValue[1];
+   }
+
+   if (token.state == "STATE") {
     //now validate the id_token and extract all user information from it and make the user logged in your app if the token is valid
-    let loginData = "<h4>Your Sign-in is successful...............Please return to the App</h4>";
-    if (authorizeEndpoint.includes("autho")) {
-     // for Autho provider, we will implement logout as well
-     // Though your application uses Auth0 to authenticate users, you'll still need to track that the user has logged in to your application. In a regular web application,
-     // you achieve this by storing information inside a cookie. Log users out of your applications by clearing their sessions.
-     // before loggingout user from application , clear cookie which stores user has logged in or not
-     // while logout , we will logout user from Autho also . The Auth0 Logout endpoint clears the Single Sign-on (SSO) cookie in Auth0.
-     loginData += `<a href=${providers.Auth0.logoutUrl}>Click here to logout</a>`;
-    }
-    res.send(loginData);
+    await provider.validateToken(token);
+    //TODO:We should encrypt the id_token value before storing in cookie and make the cookie secure from any attack
+    res.cookie("token", token.id_token, { httpOnly: true }); // using httpOnly,clientside Javascript code cannot read the cookie value, so protected from cross-scripting attack
+    res.redirect("http://localhost:8000/autho.implicit.formpost.callback.html");
    }
   });
  });
+
+ app.get("/login", async function (req, res) {
+  res.redirect(authorizeEndpoint);
+ });
+
+ app.get("/implicitFormPostLogout", function (req, res) {
+  res.clearCookie("token");
+  res.redirect(providers.Auth0.logoutUrl + "http://localhost:8000/autho.implicit.formpost.callback.html");
+ });
+
+ app.get("/validateToken", async function (req, res) {
+  let isValid = true;
+  if (!req.cookies.token) {
+   isValid = false;
+  }
+  // Validate this id_token from Cookie
+  if (isValid) {
+   // If Valid
+   res.status(200).send({ isAuthenticated: true });
+  } else {
+   res.status(200).send({ isAuthenticated: false });
+  }
+ });
+
+ //////////////////////////////////////////////////////////////////////////////////////////////////
 
  // For Google PKCE and Implicit Flow .The client-side code should validate the token also,but since it is a plain html file, so token validation we will do in backend server
  app.post("/validateToken", async function (req, res) {
