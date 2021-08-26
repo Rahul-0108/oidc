@@ -18,13 +18,12 @@ let isImplicitFlowFormPost = false;
 let isHybridFlow = false;
 let isPkceFlow = false;
 let pkceImplicitConfig;
+let PORT = 8000;
 
 async function main() {
+ console.log("Choose your Login Provider");
  console.log(
-  "Choose Login Provider(Autho,Autho.PKCE,Autho.Implicit,Autho.Hybrid,Autho.Device,Linkedin,Github,Facebook,Google,Google.PKCE,Google.Implicit,Google.Device,Bentley)"
- );
- console.log(
-  "1.Autho\n2.Autho.PKCE\n3.Autho.Implicit\n4.Autho.Device\n5.Linkedin\n6.Github\n7.Facebook\n8.Google\n9.Google.PKCE\n10.Google.Implicit\n11.Google.Device\n12.Bentley\n13.Autho.Hybrid"
+  " 1.Autho\n 2.Autho.PKCE\n 3.Autho.Implicit\n 4.Autho.Device\n 5.Autho.Hybrid\n 6.Linkedin\n 7.Github\n 8.Facebook\n 9.Google\n 10.Google.PKCE\n 11.Google.Implicit\n 12.Google.Device\n 13.Bentley\n 14.Bentley.PKCE\n 15.Bentley.Hybrid\n 16.Bentley.Device"
  );
  const response = await prompt({
   type: "input",
@@ -40,7 +39,7 @@ async function main() {
 
   case "2": // We will demo PKCE for SPA only for Google. otherwise backend code will demo PKCE
    provider = new Autho(providers.Auth0);
-   authorizeEndpoint = providers.Auth0.pkceConfig;
+   authorizeEndpoint = providers.Auth0.authorizeEndpointPKCE;
    break;
 
   case "3":
@@ -55,53 +54,71 @@ async function main() {
    break;
 
   case "5":
+   provider = new Autho(providers.Auth0);
+   authorizeEndpoint = providers.Auth0.authorizeEndpointHybrid;
+   isHybridFlow = true;
+   break;
+
+  case "6":
    provider = new Linkedin(providers.Linkedin);
    authorizeEndpoint = providers.Linkedin.authorizeEndpoint;
    break;
 
-  case "6":
+  case "7":
    provider = new Github(providers.Github);
+   //if we provide no scope then it Grants read-only access to public information (including user profile info, repository info, and gists)
    authorizeEndpoint = providers.Github.authorizeEndpoint;
    break;
 
-  case "7":
-   provider = new Facebook(providers.Facebook);
-   //if we provide no scope then it Grants read-only access to public information (including user profile info, repository info, and gists)
-   authorizeEndpoint = providers.Facebook.authorizeEndpoint;
-   break;
-
   case "8":
-   provider = new Google(providers.Google);
-   authorizeEndpoint = providers.Google.authorizeEndpoint;
+   provider = new Facebook(providers.Facebook);
+   authorizeEndpoint = providers.Facebook.authorizeEndpoint;
    break;
 
   case "9":
    provider = new Google(providers.Google);
-   pkceImplicitConfig = providers.Google.pkceImplicitConfig;
-   isPkceFlow = true;
+   authorizeEndpoint = providers.Google.authorizeEndpoint;
    break;
 
   case "10":
    provider = new Google(providers.Google);
    pkceImplicitConfig = providers.Google.pkceImplicitConfig;
-   isImplicitFlow = true;
+   isPkceFlow = true;
    break;
 
   case "11":
    provider = new Google(providers.Google);
-   await provider.executeDeviceCodeFlow();
+   pkceImplicitConfig = providers.Google.pkceImplicitConfig;
+   isImplicitFlow = true;
    break;
 
   case "12":
+   provider = new Google(providers.Google);
+   await provider.executeDeviceCodeFlow();
+   break;
+
+  case "13":
+   provider = new Bentley(providers.Bentley);
+   authorizeEndpoint = providers.Bentley.authorizeEndpoint;
+   break;
+
+  case "14":
    provider = new Bentley(providers.Bentley);
    authorizeEndpoint = providers.Bentley.authorizeEndpointPKCE;
    break;
 
-  case "13":
-   provider = new Autho(providers.Auth0);
-   authorizeEndpoint = providers.Auth0.authorizeEndpointHybrid;
+  case "15":
+   provider = new Bentley(providers.Bentley);
+   await provider.executeDeviceCodeFlow();
+   break;
+
+  case "16":
+   provider = new Bentley(providers.Bentley);
+   PORT = 5000;
+   authorizeEndpoint = providers.Bentley.authorizeEndpointHybrid;
    isHybridFlow = true;
    break;
+
   default:
    console.log("Please type a valid provider name");
  }
@@ -109,9 +126,9 @@ async function main() {
   runServer();
   // only for Google PKCE and Implicit Flow
   if (isImplicitFlow || isPkceFlow) {
-   await open(`http://localhost:8000/callback.html?flow=${isPkceFlow ? "PKCE" : "Impl"}&clientSideUrl=${pkceImplicitConfig}`);
+   await open(`http://localhost:${PORT}/callback.html?flow=${isPkceFlow ? "PKCE" : "Impl"}&clientSideUrl=${pkceImplicitConfig}`);
   } else if (isImplicitFlowFormPost || isHybridFlow) {
-   await open(`http://localhost:8000/autho.implicit.formpost.callback.html`);
+   await open(`http://localhost:${PORT}/autho.implicit.formpost.callback.html`);
   } else {
    await open(authorizeEndpoint);
   }
@@ -146,13 +163,15 @@ function runServer() {
     }
     await provider.validateToken(tokenResponse.data);
     let loginData = "<h4>Your Sign-in is successful...............Please return to the App</h4>";
-    if (authorizeEndpoint.includes("autho")) {
+    if (authorizeEndpoint.includes("autho") || authorizeEndpoint.includes("ims")) {
      // for Autho provider, we will implement logout as well
      // Though your application uses Auth0 to authenticate users, you'll still need to track that the user has logged in to your application. In a regular web application,
      // you achieve this by storing information inside a cookie. Log users out of your applications by clearing their sessions.
      // before loggingout user from application , clear cookie which stores user has logged in or not
      // while logout , we will logout user from Autho also . The Auth0 Logout endpoint clears the Single Sign-on (SSO) cookie in Auth0.
-     loginData += `<a href=${providers.Auth0.logoutUrl}http://localhost:8000/logout>Click here to logout</a>`;
+     loginData += `<a href=${
+      authorizeEndpoint.includes("ims") ? providers.Bentley.logoutUrl : providers.Auth0.logoutUrl
+     }http://localhost:8000/logout>Click here to logout</a>`;
     }
     res.send(loginData);
    } catch (error) {
@@ -169,8 +188,8 @@ function runServer() {
  });
 
  /////////////////////////////////////////////////////////////////////////////////////////////////
- // Implicit Flow with Form POST
- app.post("/callback", async function (req, res) {
+ // Implicit Flow with Form POST, Hybrid
+ app.post(authorizeEndpoint.includes("ims") ? "/signin-oidc" : "/callback", async function (req, res) {
   console.log(req.url);
   let body = "";
   let data;
@@ -204,10 +223,17 @@ function runServer() {
 
      //TODO:We should encrypt the id_token value before storing in cookie and make the cookie secure from any attack
      res.cookie("token", token.id_token, { httpOnly: true }); // using httpOnly,clientside Javascript code cannot read the cookie value, so protected from cross-scripting attack
-     res.redirect("http://localhost:8000/autho.implicit.formpost.callback.html");
+     res.redirect(`http://localhost:${PORT}/autho.implicit.formpost.callback.html`);
      // We are securely going to retrive the Access Token and Refresh token from the backend channel when we need them, not rquired immediately as id_token is already got for login
-     const tokenResponse = await provider.getToken(token.code, true);
-     await provider.validateToken(tokenResponse.data);
+     let tokenResponse;
+     if (authorizeEndpoint.includes("ims")) {
+      tokenResponse = await provider.getTokenHybridFlow(token.code, providers.codeChallenge.verifier);
+      console.log(tokenResponse.data);
+      // validate the id_token and retrive userinfo and call APIs , here we are not going to that because we are using qa-imsoidc for hybrid flow and validateToken method is for ims.bentley.com
+     } else {
+      tokenResponse = await provider.getToken(token.code, true);
+      await provider.validateToken(tokenResponse.data);
+     }
     }
    }
   });
@@ -219,7 +245,10 @@ function runServer() {
 
  app.get("/implicitFormPostLogout", function (req, res) {
   res.clearCookie("token");
-  res.redirect(providers.Auth0.logoutUrl + "http://localhost:8000/autho.implicit.formpost.callback.html");
+  res.redirect(
+   (authorizeEndpoint.includes("ims") ? providers.Bentley.qaLogoutUrl : providers.Auth0.logoutUrl) +
+    `http://localhost:${PORT}/autho.implicit.formpost.callback.html` // We have not registered this redirect Url for IMS , but still works
+  );
  });
 
  app.get("/validateToken", async function (req, res) {
@@ -254,6 +283,6 @@ function runServer() {
   });
  });
 
- app.listen(8000, () => {});
+ app.listen(PORT, () => {});
 }
 main();

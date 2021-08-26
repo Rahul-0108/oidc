@@ -15,6 +15,7 @@
   "enquirer": "^2.3.6",
   "express": "^4.17.1",
   "jsonwebtoken": "^8.5.1",
-  "open": "^8.2.1"
+  "open": "^8.2.1",
+  "querystring": "^0.2.1"
  }
 }
