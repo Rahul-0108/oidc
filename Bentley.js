@@ -1,3 +1,5 @@
+// https://developer.bentley.com/apis/overview/authorization/
+
 const axios = require("axios");
 var querystring = require("querystring");
 const { prompt } = require("enquirer");
@@ -53,10 +55,10 @@ class Bentley {
  async getTokenHybridFlow(code, code_verifier) {
   try {
    const tokenResponse = await axios.post(
-    "https://qa-imsoidc.bentley.com/connect/token",
+    this.provider.tokenEndpointHybrid,
     querystring.stringify({
      grant_type: "authorization_code",
-     client_id: "imsoidc-example-hybrid-public-client",
+     client_id: this.provider.client_idHybrid,
      code_verifier,
      code: code,
      redirect_uri: "http://localhost:5000/signin-oidc",
