@@ -108,15 +108,15 @@ async function main() {
    break;
 
   case "15":
-   provider = new Bentley(providers.Bentley);
-   await provider.executeDeviceCodeFlow();
+   provider = new Bentley(providers.Bentley); // We have used a predefined client Id and redirect_uri for IMS Hybrid Flow, that's why we have used PORT 5000
+   PORT = 5000;
+   authorizeEndpoint = providers.Bentley.authorizeEndpointHybrid;
+   isHybridFlow = true;
    break;
 
   case "16":
    provider = new Bentley(providers.Bentley);
-   PORT = 5000;
-   authorizeEndpoint = providers.Bentley.authorizeEndpointHybrid;
-   isHybridFlow = true;
+   await provider.executeDeviceCodeFlow();
    break;
 
   default:
