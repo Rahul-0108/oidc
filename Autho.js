@@ -8,6 +8,10 @@ class Autho {
  constructor(provider) {
   this.provider = provider;
  }
+ 
+ // To validate token , just follow these things : The token you are receiving hasn’t been tampered with. The token
+ // you are receiving hasn’t expired.That certain pieces of JSON data encoded in the token are what you expect them
+ //to be
  async validateToken(token) {
   console.log("Token response from /token  Endpoint");
   console.log(token);
